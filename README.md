@@ -1,18 +1,16 @@
 <p align="center">
+  <img src="assets/banner.svg" alt="MOSAIC Banner" width="100%"/>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/LLM-OpenAI_Compatible-412991?style=for-the-badge&logo=openai&logoColor=white" />
   <img src="https://img.shields.io/badge/UI-Gradio-FF6F00?style=for-the-badge&logo=gradio&logoColor=white" />
   <img src="https://img.shields.io/badge/Arch-Multi--Agent-00C853?style=for-the-badge&logo=robot&logoColor=white" />
 </p>
 
-<h1 align="center">MOSAIC</h1>
-
 <p align="center">
-  <b>M</b>ulti-agent <b>O</b>rchestrated <b>S</b>imulation for <b>A</b>daptive <b>I</b>nterview <b>C</b>oaching
-</p>
-
-<p align="center">
-  <i>不是聊天机器人包装器，而是一个解决真实多 Agent 挑战的完整架构。</i>
+  <i>6 个 AI Agent 协作的面试教练平台 — 简历优化 × 深度模拟面试 × 教练级评估反馈，一站式备战求职。</i>
 </p>
 
 ---

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0c29"/>
+      <stop offset="50%" style="stop-color:#302b63"/>
+      <stop offset="100%" style="stop-color:#24243e"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="50%" style="stop-color:#764ba2"/>
+      <stop offset="100%" style="stop-color:#f093fb"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#43e97b"/>
+      <stop offset="100%" style="stop-color:#38f9d7"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#764ba2" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="320" fill="url(#bg)" rx="16"/>
+
+  <!-- Decorative grid dots -->
+  <g opacity="0.06" fill="white">
+    <circle cx="60" cy="40" r="1.5"/><circle cx="120" cy="40" r="1.5"/><circle cx="180" cy="40" r="1.5"/><circle cx="240" cy="40" r="1.5"/><circle cx="300" cy="40" r="1.5"/><circle cx="360" cy="40" r="1.5"/><circle cx="420" cy="40" r="1.5"/><circle cx="480" cy="40" r="1.5"/><circle cx="540" cy="40" r="1.5"/><circle cx="600" cy="40" r="1.5"/><circle cx="660" cy="40" r="1.5"/><circle cx="720" cy="40" r="1.5"/><circle cx="780" cy="40" r="1.5"/><circle cx="840" cy="40" r="1.5"/><circle cx="900" cy="40" r="1.5"/><circle cx="960" cy="40" r="1.5"/><circle cx="1020" cy="40" r="1.5"/><circle cx="1080" cy="40" r="1.5"/><circle cx="1140" cy="40" r="1.5"/>
+    <circle cx="60" cy="80" r="1.5"/><circle cx="120" cy="80" r="1.5"/><circle cx="180" cy="80" r="1.5"/><circle cx="240" cy="80" r="1.5"/><circle cx="300" cy="80" r="1.5"/><circle cx="360" cy="80" r="1.5"/><circle cx="420" cy="80" r="1.5"/><circle cx="480" cy="80" r="1.5"/><circle cx="540" cy="80" r="1.5"/><circle cx="600" cy="80" r="1.5"/><circle cx="660" cy="80" r="1.5"/><circle cx="720" cy="80" r="1.5"/><circle cx="780" cy="80" r="1.5"/><circle cx="840" cy="80" r="1.5"/><circle cx="900" cy="80" r="1.5"/><circle cx="960" cy="80" r="1.5"/><circle cx="1020" cy="80" r="1.5"/><circle cx="1080" cy="80" r="1.5"/><circle cx="1140" cy="80" r="1.5"/>
+    <circle cx="60" cy="280" r="1.5"/><circle cx="120" cy="280" r="1.5"/><circle cx="180" cy="280" r="1.5"/><circle cx="240" cy="280" r="1.5"/><circle cx="300" cy="280" r="1.5"/><circle cx="360" cy="280" r="1.5"/><circle cx="420" cy="280" r="1.5"/><circle cx="480" cy="280" r="1.5"/><circle cx="540" cy="280" r="1.5"/><circle cx="600" cy="280" r="1.5"/><circle cx="660" cy="280" r="1.5"/><circle cx="720" cy="280" r="1.5"/><circle cx="780" cy="280" r="1.5"/><circle cx="840" cy="280" r="1.5"/><circle cx="900" cy="280" r="1.5"/><circle cx="960" cy="280" r="1.5"/><circle cx="1020" cy="280" r="1.5"/><circle cx="1080" cy="280" r="1.5"/><circle cx="1140" cy="280" r="1.5"/>
+  </g>
+
+  <!-- Agent constellation - left side -->
+  <g opacity="0.15" stroke="url(#accent)" stroke-width="1" fill="none">
+    <!-- Nodes -->
+    <circle cx="145" cy="130" r="18" fill="#43e97b" fill-opacity="0.08" stroke-width="1.5"/>
+    <circle cx="85" cy="195" r="14" fill="#38f9d7" fill-opacity="0.06"/>
+    <circle cx="195" cy="210" r="16" fill="#667eea" fill-opacity="0.08"/>
+    <circle cx="120" cy="260" r="12" fill="#764ba2" fill-opacity="0.06"/>
+    <circle cx="220" cy="145" r="10" fill="#f093fb" fill-opacity="0.06"/>
+    <!-- Connections -->
+    <line x1="145" y1="130" x2="85" y2="195"/>
+    <line x1="145" y1="130" x2="195" y2="210"/>
+    <line x1="145" y1="130" x2="220" y2="145"/>
+    <line x1="85" y1="195" x2="120" y2="260"/>
+    <line x1="85" y1="195" x2="195" y2="210"/>
+    <line x1="195" y1="210" x2="120" y2="260"/>
+  </g>
+
+  <!-- Agent constellation - right side -->
+  <g opacity="0.12" stroke="url(#title)" stroke-width="1" fill="none">
+    <circle cx="1020" cy="140" r="16" fill="#667eea" fill-opacity="0.06"/>
+    <circle cx="1090" cy="100" r="12" fill="#764ba2" fill-opacity="0.05"/>
+    <circle cx="1070" cy="200" r="14" fill="#f093fb" fill-opacity="0.06"/>
+    <circle cx="980" cy="230" r="10" fill="#43e97b" fill-opacity="0.05"/>
+    <circle cx="1130" cy="170" r="11" fill="#38f9d7" fill-opacity="0.05"/>
+    <line x1="1020" y1="140" x2="1090" y2="100"/>
+    <line x1="1020" y1="140" x2="1070" y2="200"/>
+    <line x1="1020" y1="140" x2="980" y2="230"/>
+    <line x1="1090" y1="100" x2="1130" y2="170"/>
+    <line x1="1070" y1="200" x2="1130" y2="170"/>
+    <line x1="1070" y1="200" x2="980" y2="230"/>
+  </g>
+
+  <!-- Decorative orbiting rings -->
+  <ellipse cx="600" cy="135" rx="280" ry="55" fill="none" stroke="url(#title)" stroke-width="0.6" opacity="0.08" transform="rotate(-5 600 135)"/>
+  <ellipse cx="600" cy="135" rx="340" ry="70" fill="none" stroke="url(#accent)" stroke-width="0.4" opacity="0.05" transform="rotate(3 600 135)"/>
+
+  <!-- Main title -->
+  <text x="600" y="148" text-anchor="middle" font-family="'SF Pro Display', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="88" font-weight="800" fill="url(#title)" filter="url(#shadow)" letter-spacing="18">MOSAIC</text>
+
+  <!-- Subtitle line -->
+  <line x1="380" y1="178" x2="820" y2="178" stroke="url(#title)" stroke-width="1" opacity="0.25"/>
+
+  <!-- Full name -->
+  <text x="600" y="210" text-anchor="middle" font-family="'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#a8a3c7" letter-spacing="5" font-weight="300">MULTI-AGENT ORCHESTRATED SIMULATION</text>
+  <text x="600" y="235" text-anchor="middle" font-family="'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#a8a3c7" letter-spacing="5" font-weight="300">FOR ADAPTIVE INTERVIEW COACHING</text>
+
+  <!-- Tagline -->
+  <text x="600" y="278" text-anchor="middle" font-family="'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" fill="url(#accent)" opacity="0.7" letter-spacing="1" font-weight="400">6 Agents  ·  4-Layer Memory  ·  Event-Driven  ·  Human-AI Switch</text>
+</svg>
