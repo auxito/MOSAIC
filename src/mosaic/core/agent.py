@@ -36,7 +36,9 @@ INTERVIEWER_POLICY = MemoryPolicy(
     can_see_modified_resume=True, can_see_jd=True
 )
 INTERVIEWEE_POLICY = MemoryPolicy(
-    can_see_modified_resume=True
+    can_see_original_resume=True,
+    can_see_modified_resume=True,
+    can_see_jd=True,
 )
 EVALUATOR_POLICY = MemoryPolicy(
     can_see_original_resume=True,
@@ -44,9 +46,11 @@ EVALUATOR_POLICY = MemoryPolicy(
     can_see_jd=True,
     can_see_evaluation=True,
 )
-RESUME_MODIFIER_POLICY = MemoryPolicy(
+CAREER_COACH_POLICY = MemoryPolicy(
     can_see_original_resume=True, can_see_jd=True
 )
+# 向后兼容别名
+RESUME_MODIFIER_POLICY = CAREER_COACH_POLICY
 MEMORY_MANAGER_POLICY = MemoryPolicy()  # 不需要特权信息，只处理对话
 
 

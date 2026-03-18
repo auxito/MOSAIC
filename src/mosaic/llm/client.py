@@ -71,6 +71,34 @@ class LLMClient:
         logger.debug(f"LLM response: {len(content)} chars")
         return content
 
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs: Any,
+    ):
+        """
+        流式聊天 — 异步生成器，逐 token yield。
+
+        用于 Web UI 场景下的实时输出。
+        """
+        logger.debug(
+            f"LLM stream call: model={self.model}, msgs={len(messages)}, temp={temperature}"
+        )
+
+        stream = await self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+            **kwargs,
+        )
+        async for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     async def chat_json(
         self,
         messages: list[dict[str, str]],

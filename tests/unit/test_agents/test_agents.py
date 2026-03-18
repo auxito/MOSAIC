@@ -159,3 +159,19 @@ class TestMemoryPolicy:
         assert EVALUATOR_POLICY.can_see_modified_resume
         assert EVALUATOR_POLICY.can_see_jd
         assert EVALUATOR_POLICY.can_see_evaluation
+
+    def test_interviewee_policy(self) -> None:
+        """面试者现在能看到两份简历和JD"""
+        from mosaic.core.agent import INTERVIEWEE_POLICY
+        assert INTERVIEWEE_POLICY.can_see_original_resume
+        assert INTERVIEWEE_POLICY.can_see_modified_resume
+        assert INTERVIEWEE_POLICY.can_see_jd
+
+    def test_career_coach_policy(self) -> None:
+        """职业发展教练能看到原始简历和JD"""
+        from mosaic.core.agent import CAREER_COACH_POLICY, RESUME_MODIFIER_POLICY
+        assert CAREER_COACH_POLICY.can_see_original_resume
+        assert CAREER_COACH_POLICY.can_see_jd
+        assert not CAREER_COACH_POLICY.can_see_modified_resume
+        # 向后兼容
+        assert RESUME_MODIFIER_POLICY is CAREER_COACH_POLICY

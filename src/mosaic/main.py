@@ -24,7 +24,7 @@ from mosaic.agents.evaluator import EvaluatorAgent
 from mosaic.agents.interviewee import IntervieweeAgent
 from mosaic.agents.interviewer import InterviewerAgent
 from mosaic.agents.memory_manager import MemoryManagerAgent
-from mosaic.agents.resume_modifier import ResumeModifierAgent
+from mosaic.agents.career_coach import CareerCoachAgent
 from mosaic.agents.resume_parser import ResumeParserAgent
 
 # Participant imports
@@ -73,9 +73,9 @@ def build_orchestrator(
     parser = ResumeParserAgent()
     orch.register_agent(parser)
 
-    # 简历修改器
-    modifier = ResumeModifierAgent(llm=llm)
-    orch.register_agent(modifier)
+    # 职业发展教练（原简历修改器）
+    coach = CareerCoachAgent(llm=llm)
+    orch.register_agent(coach)
 
     # 面试官
     interviewer = InterviewerAgent(llm=llm, working_memory=orch.working_memory)
@@ -198,9 +198,20 @@ def main() -> None:
         action="store_true",
         help="详细日志",
     )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="启动 Gradio Web UI (http://localhost:7860)",
+    )
 
     args = parser.parse_args()
     setup_logging(verbose=args.verbose)
+
+    if args.web:
+        from mosaic.web_app import create_app
+        app = create_app()
+        app.queue().launch(server_name="0.0.0.0", server_port=7860)
+        return
 
     asyncio.run(main_async(args))
 

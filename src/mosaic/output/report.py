@@ -35,8 +35,26 @@ def generate_report(
     sections.append(f"- **候选人**: {name}")
     if state.job_description:
         sections.append(f"- **目标职位**: {state.job_description[:100]}...")
-    sections.append(f"- **简历风格**: {state.selected_resume_style or '未指定'}")
+    style_labels = {
+        "rigorous": "专业打磨版",
+        "embellished": "技术深化版",
+        "wild": "成长路线版",
+    }
+    style_display = style_labels.get(
+        state.selected_resume_style, state.selected_resume_style or "未指定"
+    )
+    sections.append(f"- **简历风格**: {style_display}")
     sections.append(f"- **面试轮次**: {state.current_round}")
+
+    # 教练笔记（从修改后简历中提取）
+    selected_content = state.selected_resume.get("content", "")
+    if selected_content and "---" in selected_content:
+        parts = selected_content.split("---", 1)
+        if len(parts) > 1:
+            coach_notes = parts[1].strip()
+            if coach_notes:
+                sections.append("\n## 📝 教练笔记")
+                sections.append(coach_notes)
 
     # 综合评分
     if final_evaluation and "error" not in final_evaluation:
@@ -81,6 +99,33 @@ def generate_report(
         if comments:
             sections.append(f"\n### 详细评语\n{comments}")
 
+        # 教练建议
+        coaching_notes = final_evaluation.get("coaching_notes", "")
+        if coaching_notes:
+            sections.append(f"\n### 🎯 教练建议\n{coaching_notes}")
+
+        # 学习路线图
+        learning_roadmap = final_evaluation.get("learning_roadmap", [])
+        if learning_roadmap:
+            sections.append("\n### 📚 学习路线图")
+            for item in learning_roadmap:
+                area = item.get("area", "未知")
+                sections.append(f"\n#### {area}")
+                current = item.get("current_level", "")
+                if current:
+                    sections.append(f"- **当前水平**: {current}")
+                target = item.get("target_level", "")
+                if target:
+                    sections.append(f"- **目标水平**: {target}")
+                timeline = item.get("timeline", "")
+                if timeline:
+                    sections.append(f"- **建议周期**: {timeline}")
+                resources = item.get("resources", [])
+                if resources:
+                    sections.append("- **推荐资源**:")
+                    for r in resources:
+                        sections.append(f"  - {r}")
+
     # 各轮评分详情
     if state.turn_evaluations:
         sections.append("\n## 各轮评分详情")
@@ -97,6 +142,19 @@ def generate_report(
             )
             if comment:
                 sections.append(f"> {comment}")
+            # 改进建议
+            highlights = te.get("highlights", "")
+            if highlights:
+                sections.append(f"> ✨ 亮点: {highlights}")
+            suggestions = te.get("improvement_suggestions", "")
+            if suggestions:
+                sections.append(f"> 💡 改进建议: {suggestions}")
+            ref_points = te.get("reference_points", [])
+            if ref_points:
+                sections.append("> 📌 参考答案要点: " + "；".join(ref_points))
+            knowledge_gaps = te.get("knowledge_gaps", "")
+            if knowledge_gaps:
+                sections.append(f"> 📚 知识盲区: {knowledge_gaps}")
             if te.get("exaggeration_detected"):
                 sections.append(f"> ⚠️ 夸大检测: {te.get('exaggeration_details', '')}")
 

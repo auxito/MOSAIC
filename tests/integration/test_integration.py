@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from mosaic.core.agent import AgentState, EVALUATOR_POLICY, INTERVIEWER_POLICY, INTERVIEWEE_POLICY
+from mosaic.core.agent import AgentState, EVALUATOR_POLICY, INTERVIEWER_POLICY, INTERVIEWEE_POLICY, CAREER_COACH_POLICY
 from mosaic.core.events import EventBus, Event, EventType
 from mosaic.core.memory import (
     ContextWindowManager,
@@ -89,6 +89,9 @@ class TestEndToEndMemory:
             system_prompt="你是候选人",
             policy=INTERVIEWEE_POLICY,
         )
+        # 面试者现在能看到两份简历和JD
+        interviewee_content = interviewee_view[0]["content"]
+        assert "modified_resume" in interviewee_content or "修改" in interviewee_content
 
         evaluator_view = wm.compose_for_agent(
             system_prompt="你是评估官",

@@ -1,12 +1,13 @@
 """
-Interviewer Agent — 面试官。
-职责：自适应提问 + 追问 + 收尾。
-订阅矛盾事件，发现矛盾时改变策略追问。
+Interviewer Agent — 领域专家面试官。
+职责：自适应深度提问 + 技术深挖 + 追问策略动态调整。
+订阅矛盾事件和评估事件，根据候选人表现调整策略。
 """
 
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -20,46 +21,67 @@ from mosaic.llm.client import LLMClient
 logger = logging.getLogger(__name__)
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
+
+class InterviewStrategy(Enum):
+    """面试追问策略 — 根据候选人表现自适应调整"""
+    DEEP_DIVE = "deep_dive"   # 候选人答得好 → 继续深入更高难度
+    GUIDED = "guided"         # 答得一般 → 给提示引导
+    PIVOT = "pivot"           # 答不上来 → 温和换话题
+
+
+STRATEGY_LABELS = {
+    InterviewStrategy.DEEP_DIVE: "🟢 深入模式 — 候选人表现优秀，继续深入更高难度",
+    InterviewStrategy.GUIDED: "🟡 引导模式 — 候选人表现一般，给提示引导",
+    InterviewStrategy.PIVOT: "🔴 转向模式 — 候选人有困难，温和换话题",
+}
+
+
 INTERVIEWER_SYSTEM_FALLBACK = """\
-你是一位经验丰富的技术面试官，正在进行一场模拟面试。
+你是目标岗位领域的技术大佬，正在作为面试官进行一场深度技术面试。
 
-## 你的面试策略
+## 你的身份
 
-1. **开场**: 自我介绍，简单寒暄，让候选人放松
-2. **项目深挖**: 针对简历中的项目经历，追问技术细节和个人贡献
-3. **技术考察**: 基于 JD 要求，考察核心技术能力
-4. **行为面试**: 了解团队协作、解决问题的方式
-5. **收尾**: 让候选人提问，总结面试
+你是该技术领域的顶级专家，能从候选人简历中的关键词出发，追问到技术纵深。
 
-## 提问原则
+## 技术深挖链
 
-- 由浅入深，先开放后具体
-- 对模糊回答进行追问（"能具体说说吗？""给个例子？"）
-- 关注数字和细节（"团队多大？""提升了多少？"）
-- 每次只问一个问题，等待回答后再继续
-- 如果发现矛盾，用温和的方式追问核实
+- 简历关键词 → 核心概念 → 设计权衡 → 前沿趋势
+- "了解 Transformer" → self-attention → multi-head → 位置编码
+- "使用 PPO" → PPO vs TRPO → GAE → GRPO/DPO
+- "Redis 缓存" → 缓存策略 → 一致性问题 → 分布式缓存
+
+## 自适应追问策略
+
+当前策略: {current_strategy}
+
+🟢 深入模式: 候选人答得好 → 继续深入更高难度
+🟡 引导模式: 答得一般 → 给提示引导
+🔴 转向模式: 答不上来 → 温和换话题
 
 ## 提问覆盖追踪
 
-你需要覆盖以下维度，用 [已覆盖] 标记已提问的维度：
-- 项目经历深挖
-- 技术能力考察
-- 系统设计思维
-- 团队协作能力
-- 学习成长能力
+你需要覆盖以下维度：
+{coverage_status}
 
 当前是第 {current_round} 轮，共 {total_rounds} 轮。
-{coverage_status}
 {contradiction_alert}
+
+## 提问原则
+
+- 每次只问一个问题
+- 对候选人的回答给出简短反馈后再追问
+- 技术问题要具体，深入到原理和权衡
+- 数字和细节是重点追问方向
 """
 
 
 class InterviewerAgent(BaseAgent):
     """
-    面试官 Agent。
+    领域专家面试官 Agent。
 
     事件订阅：
     - CONTRADICTION_FOUND → 标记矛盾，下次提问时追问
+    - TURN_EVALUATED → 根据评分调整追问策略
 
     事件发布：
     - QUESTION_POSED — 提出新问题
@@ -67,10 +89,10 @@ class InterviewerAgent(BaseAgent):
 
     COVERAGE_DIMENSIONS = [
         "项目经历深挖",
-        "技术能力考察",
+        "技术纵深考察",
         "系统设计思维",
-        "团队协作能力",
-        "学习成长能力",
+        "团队协作与沟通",
+        "技术视野与学习力",
     ]
 
     def __init__(self, llm: LLMClient, working_memory: WorkingMemory) -> None:
@@ -81,6 +103,7 @@ class InterviewerAgent(BaseAgent):
             dim: False for dim in self.COVERAGE_DIMENSIONS
         }
         self._pending_contradictions: list[dict[str, Any]] = []
+        self._current_strategy: InterviewStrategy = InterviewStrategy.GUIDED
         self._jinja_env = Environment(
             loader=FileSystemLoader(str(PROMPTS_DIR)),
             trim_blocks=True,
@@ -89,6 +112,7 @@ class InterviewerAgent(BaseAgent):
 
     def _register_subscriptions(self) -> None:
         self._subscribe(EventType.CONTRADICTION_FOUND, self._on_contradiction)
+        self._subscribe(EventType.TURN_EVALUATED, self._on_turn_evaluated)
 
     async def _on_contradiction(self, event: Event) -> None:
         """收到矛盾通知 → 记下来，下次提问时追问"""
@@ -96,6 +120,36 @@ class InterviewerAgent(BaseAgent):
         logger.info(
             f"Interviewer noted contradiction: {event.data.get('description')}"
         )
+
+    async def _on_turn_evaluated(self, event: Event) -> None:
+        """收到评估结果 → 根据分数调整追问策略"""
+        scores = event.data.get("scores", {})
+        if not scores:
+            return
+
+        # 计算平均分
+        score_values = [v for v in scores.values() if isinstance(v, (int, float))]
+        if not score_values:
+            return
+
+        avg_score = sum(score_values) / len(score_values)
+
+        if avg_score >= 4:
+            self._current_strategy = InterviewStrategy.DEEP_DIVE
+        elif avg_score >= 2.5:
+            self._current_strategy = InterviewStrategy.GUIDED
+        else:
+            self._current_strategy = InterviewStrategy.PIVOT
+
+        logger.info(
+            f"Interview strategy adjusted to {self._current_strategy.value} "
+            f"(avg_score={avg_score:.1f})"
+        )
+
+    @property
+    def current_strategy(self) -> InterviewStrategy:
+        """当前追问策略"""
+        return self._current_strategy
 
     async def ask(
         self,
@@ -126,6 +180,12 @@ class InterviewerAgent(BaseAgent):
             coverage_lines.append(f"  {status} {dim}")
         coverage_status = "\n".join(coverage_lines)
 
+        # 当前策略标签
+        strategy_label = STRATEGY_LABELS.get(
+            self._current_strategy,
+            str(self._current_strategy.value),
+        )
+
         # 构建系统提示
         try:
             template = self._jinja_env.get_template("interviewer_system.j2")
@@ -134,6 +194,7 @@ class InterviewerAgent(BaseAgent):
                 total_rounds=total_rounds,
                 coverage_status=coverage_status,
                 contradiction_alert=contradiction_alert,
+                current_strategy=strategy_label,
             )
         except Exception:
             system_prompt = INTERVIEWER_SYSTEM_FALLBACK.format(
@@ -141,6 +202,7 @@ class InterviewerAgent(BaseAgent):
                 total_rounds=total_rounds,
                 coverage_status=coverage_status,
                 contradiction_alert=contradiction_alert,
+                current_strategy=strategy_label,
             )
 
         # 面试官视角：自己是 assistant，候选人是 user

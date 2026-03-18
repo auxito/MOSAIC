@@ -87,17 +87,17 @@ async def handle_resume_input(orch: Orchestrator) -> None:
 
 
 async def handle_resume_modify(orch: Orchestrator) -> None:
-    """简历修改阶段"""
-    console.print("\n[bold]✏️ 简历修改[/bold]")
+    """简历优化阶段（职业发展教练）"""
+    console.print("\n[bold]✏️ 简历优化（职业发展教练）[/bold]")
 
-    modifier = orch.get_agent("resume_modifier")
+    coach = orch.get_agent("career_coach")
     from mosaic.resume.schema import ResumeData
     resume = ResumeData(**orch.state.original_resume)
 
     styles = orch.workflow.resume_styles
     console.print(f"正在生成 {len(styles)} 种风格的简历...")
 
-    results = await modifier.modify(
+    results = await coach.modify(
         resume=resume,
         job_description=orch.state.job_description,
         styles=styles,
@@ -106,18 +106,31 @@ async def handle_resume_modify(orch: Orchestrator) -> None:
 
     # 展示并选择
     style_labels = {
-        "rigorous": "严谨版",
-        "embellished": "修饰版",
-        "wild": "夸张版",
+        "rigorous": "专业打磨版",
+        "embellished": "技术深化版",
+        "wild": "成长路线版",
     }
 
     for style, content in results.items():
         label = style_labels.get(style, style)
+
+        # 分离简历和教练笔记
+        parts = content.split("---", 1)
+        resume_part = parts[0].strip()
+        coach_notes = parts[1].strip() if len(parts) > 1 else ""
+
         console.print(Panel(
-            Markdown(content[:500] + "..." if len(content) > 500 else content),
+            Markdown(resume_part[:500] + "..." if len(resume_part) > 500 else resume_part),
             title=f"[bold]{label}[/bold]",
             border_style="cyan",
         ))
+
+        if coach_notes:
+            console.print(Panel(
+                Markdown(coach_notes[:300] + "..." if len(coach_notes) > 300 else coach_notes),
+                title=f"[bold]📝 教练笔记 — {label}[/bold]",
+                border_style="yellow",
+            ))
 
     selected = Prompt.ask(
         "选择面试用简历风格",
@@ -195,7 +208,7 @@ async def handle_interview_loop(orch: Orchestrator) -> None:
         )
         orch.state.turn_evaluations.append(turn_eval)
 
-        # 显示评分
+        # 显示评分和改进建议
         scores = turn_eval.get("scores", {})
         console.print(
             f"  [dim]评分: 质量={scores.get('answer_quality', '?')} "
@@ -203,6 +216,19 @@ async def handle_interview_loop(orch: Orchestrator) -> None:
             f"沟通={scores.get('communication', '?')} "
             f"可信={scores.get('credibility', '?')}[/dim]"
         )
+
+        # 显示改进建议
+        highlights = turn_eval.get("highlights", "")
+        if highlights:
+            console.print(f"  [green]✨ 亮点: {highlights}[/green]")
+
+        suggestions = turn_eval.get("improvement_suggestions", "")
+        if suggestions:
+            console.print(f"  [yellow]💡 改进建议: {suggestions}[/yellow]")
+
+        knowledge_gaps = turn_eval.get("knowledge_gaps", "")
+        if knowledge_gaps:
+            console.print(f"  [red]📚 知识盲区: {knowledge_gaps}[/red]")
 
         last_answer = answer
 
@@ -264,6 +290,63 @@ async def handle_report(orch: Orchestrator) -> None:
         rec = eval_data.get("recommendation", "N/A")
         console.print(f"\n  综合评分: [bold]{overall}/10[/bold]")
         console.print(f"  录用建议: [bold]{rec}[/bold]")
+
+        # 维度评分
+        dims = eval_data.get("dimension_scores", {})
+        if dims:
+            console.print("\n  维度评分:")
+            for dim, score in dims.items():
+                bar = "█" * int(score) + "░" * (5 - int(score))
+                console.print(f"    {dim}: {bar} {score}/5")
+
+        # 一致性
+        consistency = eval_data.get("consistency_assessment", "")
+        if consistency:
+            console.print(f"\n  一致性评估: {consistency}")
+
+        # 教练建议
+        coaching_notes = eval_data.get("coaching_notes", "")
+        if coaching_notes:
+            console.print(Panel(
+                Markdown(coaching_notes),
+                title="[bold yellow]🎯 教练建议[/bold yellow]",
+                border_style="yellow",
+            ))
+
+        # 学习路线图
+        learning_roadmap = eval_data.get("learning_roadmap", [])
+        if learning_roadmap:
+            roadmap_lines = []
+            for item in learning_roadmap:
+                area = item.get("area", "未知")
+                current = item.get("current_level", "")
+                target = item.get("target_level", "")
+                timeline = item.get("timeline", "")
+                resources = item.get("resources", [])
+                roadmap_lines.append(f"### {area}")
+                if current:
+                    roadmap_lines.append(f"- 当前水平: {current}")
+                if target:
+                    roadmap_lines.append(f"- 目标水平: {target}")
+                if timeline:
+                    roadmap_lines.append(f"- 建议周期: {timeline}")
+                if resources:
+                    roadmap_lines.append("- 推荐资源: " + "、".join(resources))
+                roadmap_lines.append("")
+            console.print(Panel(
+                Markdown("\n".join(roadmap_lines)),
+                title="[bold green]📚 学习路线图[/bold green]",
+                border_style="green",
+            ))
+
+        # 矛盾数
+        n_contradictions = len(orch.state.contradictions)
+        if n_contradictions:
+            console.print(
+                f"\n  [bold red]⚠️ 检测到 {n_contradictions} 处矛盾[/bold red]"
+            )
+            for c in orch.state.contradictions:
+                console.print(f"    - {c.get('description', '')}")
 
 
 # 注册阶段处理器

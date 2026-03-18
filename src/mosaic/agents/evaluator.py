@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 TURN_EVALUATION_PROMPT = """\
-你是一位面试评估专家。请评估以下面试交互轮次。
+你是一位职业发展教练型面试评估专家。请评估以下面试交互轮次，并给出改进建议。
 
 ## 轮次信息
 - 第 {round_number} 轮（共 {total_rounds} 轮）
@@ -48,13 +48,17 @@ TURN_EVALUATION_PROMPT = """\
     "credibility": 0
   }},
   "comment": "简要评语",
+  "highlights": "本轮回答的亮点",
+  "improvement_suggestions": "具体的改进建议：候选人如何能回答得更好",
+  "reference_points": ["优秀回答应该包含的要点1", "要点2", "要点3"],
+  "knowledge_gaps": "发现的知识盲区（如有）",
   "exaggeration_detected": false,
   "exaggeration_details": ""
 }}
 """
 
 FINAL_EVALUATION_PROMPT = """\
-你是一位资深面试评估专家。请基于整场面试生成最终评估报告。
+你是一位资深职业发展教练型评估专家。请基于整场面试生成最终评估报告，重点给出成长建议。
 
 ## 候选人信息
 {resume_info}
@@ -71,16 +75,35 @@ FINAL_EVALUATION_PROMPT = """\
 ## 检测到的矛盾
 {contradictions}
 
-请生成一份结构化的评估报告，包含：
-1. **综合评分** (1-10)
-2. **各维度评分** (技术能力/沟通表达/项目经验/团队协作/学习潜力，各1-5)
-3. **优势总结** (3-5 条)
-4. **改进建议** (3-5 条)
-5. **一致性评估** (是否发现矛盾/夸大)
-6. **录用建议** (强烈推荐/推荐/待定/不推荐)
-7. **详细评语** (200-300字)
+请生成一份结构化的评估报告，严格使用以下 JSON 格式返回：
+{{
+  "overall_score": 7,
+  "dimension_scores": {{
+    "技术能力": 4,
+    "沟通表达": 3,
+    "项目经验": 4,
+    "团队协作": 3,
+    "学习潜力": 4
+  }},
+  "strengths": ["优势1", "优势2", "优势3"],
+  "improvements": ["改进建议1", "改进建议2", "改进建议3"],
+  "consistency_assessment": "一致性评估（是否发现矛盾/知识盲区）",
+  "recommendation": "强烈推荐/推荐/待定/不推荐",
+  "detailed_comments": "200-300字的详细评语",
+  "coaching_notes": "整体教练建议：候选人最需要提升的3个方面及具体方法",
+  "learning_roadmap": [
+    {{
+      "area": "技术领域名称",
+      "current_level": "当前水平描述",
+      "target_level": "目标水平描述",
+      "resources": ["推荐资源1", "推荐资源2"],
+      "timeline": "建议学习周期"
+    }}
+  ]
+}}
 
-请以 JSON 格式返回。
+注意：overall_score 为 1-10 整数，dimension_scores 各项为 1-5 整数。
+learning_roadmap 应包含 2-4 个最需要提升的技术领域。
 """
 
 

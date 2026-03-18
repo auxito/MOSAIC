@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from mosaic.core.agent import (
+    CAREER_COACH_POLICY,
     EVALUATOR_POLICY,
     INTERVIEWEE_POLICY,
     INTERVIEWER_POLICY,
@@ -167,11 +168,11 @@ class TestPrivilegedMemory:
         assert "job_description" in interviewer_view
         assert "original_resume" not in interviewer_view
 
-        # 面试者：只能看修改后简历
+        # 面试者：现在能看到两份简历和JD（双简历候选人）
         interviewee_view = mem.get_visible(INTERVIEWEE_POLICY)
         assert "modified_resume" in interviewee_view
-        assert "job_description" not in interviewee_view
-        assert "original_resume" not in interviewee_view
+        assert "original_resume" in interviewee_view
+        assert "job_description" in interviewee_view
 
         # 评估官：全都能看
         evaluator_view = mem.get_visible(EVALUATOR_POLICY)
