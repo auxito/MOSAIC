@@ -1,0 +1,13 @@
+[project]
+name = "mosaic"
+version = "0.1.0"
+description = "MOSAIC — Multi-agent Orchestrated Simulation for Adaptive Interview Coaching"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends._legacy:_Backend"
