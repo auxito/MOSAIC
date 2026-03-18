@@ -208,9 +208,9 @@ def main() -> None:
     setup_logging(verbose=args.verbose)
 
     if args.web:
-        from mosaic.web_app import create_app
+        from mosaic.web_app import create_app, LAUNCH_KWARGS
         app = create_app()
-        app.queue().launch(server_name="0.0.0.0", server_port=7860)
+        app.queue().launch(server_name="0.0.0.0", server_port=7860, **LAUNCH_KWARGS)
         return
 
     asyncio.run(main_async(args))
