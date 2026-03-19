@@ -154,6 +154,10 @@ async def handle_interview_loop(orch: Orchestrator) -> None:
     evaluator = orch.get_agent("evaluator")
     memory_mgr = orch.get_agent("memory_manager")
 
+    # 面试开始前：生成简历差异摘要（一次性，后续每轮复用）
+    console.print("  [dim]正在生成简历差异分析...[/dim]")
+    await evaluator.generate_resume_diff_summary()
+
     total = orch.state.interview_rounds
     last_answer = None
 
@@ -207,6 +211,11 @@ async def handle_interview_loop(orch: Orchestrator) -> None:
             total_rounds=total,
         )
         orch.state.turn_evaluations.append(turn_eval)
+
+        # 4. 更新面试官覆盖度追踪
+        covered_dims = turn_eval.get("covered_dimensions", [])
+        for dim in covered_dims:
+            interviewer.mark_coverage(dim)
 
         # 显示评分和改进建议
         scores = turn_eval.get("scores", {})

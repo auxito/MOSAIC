@@ -75,18 +75,37 @@ CONTRADICTION_CHECK_PROMPT = """\
 """
 
 SUMMARY_PROMPT = """\
-你是一个对话摘要专家。请对以下面试对话进行简洁摘要。
+你是一个对话摘要专家。请对以下面试对话进行渐进式摘要。
 
 {previous_summary}
 
 新增对话：
 {new_turns}
 
-要求：
-1. 保留关键信息（技术能力、项目经验、团队经验等）
-2. 标注重要数字和时间节点
-3. 控制在 300 字以内
-4. 如果有之前的摘要，将新信息整合进去
+当前总轮次: {total_rounds}
+
+## 摘要要求（按优先级）
+
+### 必须保留的信息（绝不能丢弃）
+1. **所有具体数字**：年限、百分比、QPS、延迟、团队人数、项目周期等
+2. **所有时间节点**：工作起止时间、项目时间线
+3. **技术栈和工具名称**：完整保留，不要用"等技术"省略
+4. **候选人的关键判断和决策**：为什么选这个方案、权衡了什么
+
+### 应保留的信息
+5. 项目中的具体贡献和角色
+6. 技术方案的核心思路（不需要完整细节）
+7. 候选人表现出的亮点或弱点
+
+### 可以压缩的信息
+8. 面试官的提问细节（保留话题方向即可）
+9. 候选人的语气词、重复表述
+10. 已经在事实表中记录过的基本事实（避免重复）
+
+## 格式要求
+- 按话题/维度组织，不要按轮次流水账
+- 字数上限: {max_length} 字
+- 如果有之前的摘要，将新信息整合进去，而不是追加
 """
 
 
@@ -130,6 +149,9 @@ class MemoryManagerAgent(BaseAgent):
 
             # 3. 存入语义记忆
             self.working_memory.semantic.add_facts(new_facts)
+
+            # 3.5 压缩事实表（去重 + 合并 + 上限控制）
+            self.working_memory.semantic.compact()
 
             await self._emit(Event(
                 type=EventType.FACT_EXTRACTED,
@@ -238,7 +260,7 @@ class MemoryManagerAgent(BaseAgent):
             logger.error(f"Contradiction check failed: {e}")
 
     async def _generate_summary(self) -> None:
-        """生成渐进式摘要"""
+        """生成渐进式摘要 — 动态字数上限，优先保留关键数据。"""
         episodic = self.working_memory.episodic
         last_round = self.working_memory.last_summary_round
         new_turns = episodic.get_range(last_round + 1)
@@ -253,15 +275,22 @@ class MemoryManagerAgent(BaseAgent):
         prev = self.working_memory.conversation_summary
         previous_section = f"之前的摘要：\n{prev}" if prev else "（这是第一段摘要）"
 
+        # 动态字数上限：随轮次增长，但有上限
+        total_rounds = episodic.total_rounds
+        max_length = min(300 + total_rounds * 40, 800)
+
         prompt = SUMMARY_PROMPT.format(
-            previous_summary=previous_section, new_turns=new_turns_text
+            previous_summary=previous_section,
+            new_turns=new_turns_text,
+            total_rounds=total_rounds,
+            max_length=max_length,
         )
 
         try:
             summary = await self.llm.chat(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
-                max_tokens=500,
+                max_tokens=1000,
             )
             self.working_memory.conversation_summary = summary
             self.working_memory.last_summary_round = episodic.total_rounds

@@ -1,17 +1,29 @@
 """
 LLM 客户端 — OpenAI SDK 封装。
 支持 OpenAI 兼容的任何 API（OpenRouter、DeepSeek、本地部署等）。
+
+chat_json() 增强：
+- 自动剥离 markdown 代码围栏（```json ... ```）
+- 最多重试 2 次（第一次失败后追加纠错提示再试）
+- JSON 解析失败时返回结构化错误对象而非抛异常
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 from typing import Any
 
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
+
+# 用于剥离 LLM 常见的 markdown 围栏
+_CODE_FENCE_RE = re.compile(
+    r"```(?:json)?\s*\n?(.*?)\n?\s*```", re.DOTALL
+)
 
 
 class LLMClient:
@@ -99,20 +111,92 @@ class LLMClient:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
+    @staticmethod
+    def _clean_json_response(text: str) -> str:
+        """清理 LLM 返回的 JSON 文本 — 剥离围栏、修复常见问题。"""
+        text = text.strip()
+
+        # 1. 剥离 markdown 代码围栏
+        match = _CODE_FENCE_RE.search(text)
+        if match:
+            text = match.group(1).strip()
+
+        # 2. 如果以 ``` 开头但没闭合，直接去掉第一行
+        if text.startswith("```"):
+            lines = text.split("\n", 1)
+            text = lines[1].strip() if len(lines) > 1 else text
+
+        # 3. 尾部多余的 ``` 清理
+        if text.endswith("```"):
+            text = text[:-3].strip()
+
+        return text
+
     async def chat_json(
         self,
         messages: list[dict[str, str]],
         temperature: float = 0.3,
         max_tokens: int = 2000,
+        max_retries: int = 1,
         **kwargs: Any,
     ) -> str:
         """
-        请求 JSON 格式响应。
+        请求 JSON 格式响应，带自动清理和重试。
+
+        流程：
+        1. 尝试用 response_format=json_object 请求
+        2. 对返回内容剥离 markdown 围栏等杂质
+        3. 尝试 json.loads 验证
+        4. 失败则追加纠错消息重试（最多 max_retries 次）
+        5. 仍然失败则返回 {"error": "..."}
         """
-        return await self.chat(
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-            **kwargs,
+        attempt = 0
+        last_error = ""
+        current_messages = list(messages)
+
+        while attempt <= max_retries:
+            try:
+                raw = await self.chat(
+                    messages=current_messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format={"type": "json_object"},
+                    **kwargs,
+                )
+                cleaned = self._clean_json_response(raw)
+                # 验证是否为合法 JSON
+                json.loads(cleaned)
+                return cleaned
+
+            except json.JSONDecodeError as e:
+                attempt += 1
+                last_error = str(e)
+                logger.warning(
+                    f"JSON parse failed (attempt {attempt}/{max_retries + 1}): {e}"
+                )
+                if attempt <= max_retries:
+                    # 追加纠错提示重试
+                    current_messages = list(messages) + [
+                        {
+                            "role": "assistant",
+                            "content": raw if 'raw' in dir() else "",
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                "你的上一次回复不是合法的 JSON 格式。"
+                                "请严格按要求只输出 JSON，不要包含任何其他文字、"
+                                "markdown 围栏或注释。"
+                            ),
+                        },
+                    ]
+            except Exception as e:
+                # 网络错误等直接返回错误
+                logger.error(f"chat_json failed: {e}")
+                return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+        logger.error(f"chat_json exhausted retries, last error: {last_error}")
+        return json.dumps(
+            {"error": f"JSON parse failed after retries: {last_error}"},
+            ensure_ascii=False,
         )

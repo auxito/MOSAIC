@@ -1116,6 +1116,9 @@ async def _run_interview_ai(
     state.job_description = jd
     state.interview_rounds = int(total_rounds)
 
+    # 面试开始前：生成简历差异摘要（一次性，后续每轮复用）
+    await evaluator.generate_resume_diff_summary()
+
     all_evals: list[str] = []
     last_answer: str | None = None
 
@@ -1155,6 +1158,10 @@ async def _run_interview_ai(
             total_rounds=int(total_rounds),
         )
         state.turn_evaluations.append(turn_eval)
+
+        # 更新面试官覆盖度追踪
+        for dim in turn_eval.get("covered_dimensions", []):
+            interviewer.mark_coverage(dim)
 
         all_evals.append(_format_turn_eval(turn_eval))
         eval_page = {"cards": list(all_evals), "page": len(all_evals) - 1, "finished": False}
@@ -1215,6 +1222,9 @@ async def _run_interview_human_step(
         session["human_evals"] = []
         session["needs_question"] = True
 
+        # 面试开始前：生成简历差异摘要
+        await components["evaluator"].generate_resume_diff_summary()
+
     components = session["_comp"]
     interviewer = components["interviewer"]
     evaluator = components["evaluator"]
@@ -1247,6 +1257,9 @@ async def _run_interview_human_step(
                     total_rounds=int(total_rounds),
                 )
                 state.turn_evaluations.append(turn_eval)
+                # 更新面试官覆盖度追踪
+                for dim in turn_eval.get("covered_dimensions", []):
+                    interviewer.mark_coverage(dim)
                 session["human_evals"].append(_format_turn_eval(turn_eval))
                 eval_md = _build_eval_carousel(session["human_evals"], finished=False)
 
@@ -1433,18 +1446,27 @@ def create_app() -> gr.Blocks:
 
             # ── 事件绑定 ──
 
-            # 上传 → LLM 解析 → 更新 resume_state + 状态
+            # 上传 → 先显示"解析中" → LLM 解析 → 更新 resume_state + 状态
             resume_file.change(
+                fn=lambda _: "⏳ 正在解析简历，请稍候…（LLM 结构化解析中）",
+                inputs=[resume_file],
+                outputs=[parse_status],
+            ).then(
                 fn=_handle_upload_to_state,
                 inputs=[resume_file],
                 outputs=[resume_state, parse_status],
             )
 
             # 开始优化
-            modify_btn.click(
+            modify_event = modify_btn.click(
                 fn=_handle_resume_modify_structured,
                 inputs=[session, jd_input, style_radio, resume_state],
                 outputs=[session, result_display, parse_status],
+            )
+            # 切换风格时取消正在进行的优化（用户改主意了）
+            style_radio.change(
+                fn=None, inputs=[], outputs=[],
+                cancels=[modify_event],
             )
 
         # ============ Tab 2: 模拟面试 ============
@@ -1468,6 +1490,10 @@ def create_app() -> gr.Blocks:
                     start_btn = gr.Button(
                         "▶️ 开始面试", variant="primary", size="lg",
                         elem_classes="interview-start-btn",
+                    )
+                    stop_btn = gr.Button(
+                        "⏹️ 停止面试", variant="stop", size="lg",
+                        visible=True,
                     )
 
                     # 输入区（默认隐藏，选亲自作答时显示）
@@ -1533,10 +1559,17 @@ def create_app() -> gr.Blocks:
                     )
                     yield sess, chat, eval_text, ep
 
-            start_btn.click(
+            # 开始面试
+            interview_event = start_btn.click(
                 fn=start_ai_interview,
                 inputs=[session, rounds_slider, mode_radio, chatbot, eval_page_state],
                 outputs=[session, chatbot, eval_display, eval_page_state],
+            )
+
+            # ⏹️ 停止按钮 → 取消正在进行的面试流程
+            stop_btn.click(
+                fn=None, inputs=[], outputs=[],
+                cancels=[interview_event],
             )
 
             async def send_human_answer(sess, msg, chat, eval_text, rounds, ep):
@@ -1656,4 +1689,4 @@ def create_app() -> gr.Blocks:
 
 if __name__ == "__main__":
     app = create_app()
-    app.queue().launch(server_name="0.0.0.0", server_port=7860, **LAUNCH_KWARGS)
+    app.queue(default_concurrency_limit=2).launch(server_name="0.0.0.0", server_port=7860, **LAUNCH_KWARGS)

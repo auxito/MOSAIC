@@ -43,20 +43,21 @@ INTERVIEWER_SYSTEM_FALLBACK = """\
 
 你是该技术领域的顶级专家，能从候选人简历中的关键词出发，追问到技术纵深。
 
-## 技术深挖链
+## JD 驱动提问原则
 
-- 简历关键词 → 核心概念 → 设计权衡 → 前沿趋势
-- "了解 Transformer" → self-attention → multi-head → 位置编码
-- "使用 PPO" → PPO vs TRPO → GAE → GRPO/DPO
-- "Redis 缓存" → 缓存策略 → 一致性问题 → 分布式缓存
+你必须让面试紧密围绕目标岗位的 JD 要求展开：
+1. 从 JD 中提取 3-5 个核心技能要求作为考察主线
+2. 每个问题都应至少关联一个 JD 核心要求
+3. 项目深挖时，引导候选人往 JD 相关方向展开
+4. 如果候选人的简历经历与 JD 要求有差距，通过提问探测其迁移能力
 
 ## 自适应追问策略
 
 当前策略: {current_strategy}
 
-🟢 深入模式: 候选人答得好 → 继续深入更高难度
-🟡 引导模式: 答得一般 → 给提示引导
-🔴 转向模式: 答不上来 → 温和换话题
+🟢 深入模式: 答得好 → 沿同一话题继续深入更高难度
+🟡 引导模式: 答得一般 → 换个角度或给提示
+🔴 转向模式: 答不上来 → 换一个新话题
 
 ## 提问覆盖追踪
 
@@ -66,12 +67,13 @@ INTERVIEWER_SYSTEM_FALLBACK = """\
 当前是第 {current_round} 轮，共 {total_rounds} 轮。
 {contradiction_alert}
 
-## 提问原则
+## 输出规则（必须严格遵守）
 
-- 每次只问一个问题
-- 对候选人的回答给出简短反馈后再追问
-- 技术问题要具体，深入到原理和权衡
-- 数字和细节是重点追问方向
+1. **只输出一个问题，不要输出任何其他内容**
+2. **禁止评价候选人的上一轮回答**（不要说"回答得很好"、"不错"之类的话）
+3. **禁止总结或复述候选人说过的内容**
+4. 直接提出下一个问题，简洁有力，不超过 3 句话
+5. 问题要具体，指向明确的技术点
 """
 
 
@@ -104,6 +106,7 @@ class InterviewerAgent(BaseAgent):
         }
         self._pending_contradictions: list[dict[str, Any]] = []
         self._current_strategy: InterviewStrategy = InterviewStrategy.GUIDED
+        self._score_history: list[float] = []  # 历史各轮平均分
         self._jinja_env = Environment(
             loader=FileSystemLoader(str(PROMPTS_DIR)),
             trim_blocks=True,
@@ -122,28 +125,38 @@ class InterviewerAgent(BaseAgent):
         )
 
     async def _on_turn_evaluated(self, event: Event) -> None:
-        """收到评估结果 → 根据分数调整追问策略"""
+        """收到评估结果 → 综合最近 N 轮趋势调整追问策略。
+
+        策略：滑动窗口加权平均（最近 3 轮，越近权重越高）。
+        避免单轮偶然低分直接切换到 PIVOT 的问题。
+        """
         scores = event.data.get("scores", {})
         if not scores:
             return
 
-        # 计算平均分
         score_values = [v for v in scores.values() if isinstance(v, (int, float))]
         if not score_values:
             return
 
-        avg_score = sum(score_values) / len(score_values)
+        current_avg = sum(score_values) / len(score_values)
+        self._score_history.append(current_avg)
 
-        if avg_score >= 4:
+        # 滑动窗口加权平均：最近 3 轮，权重 1:2:3（越近越重）
+        window = self._score_history[-3:]
+        weights = list(range(1, len(window) + 1))  # [1], [1,2], [1,2,3]
+        weighted_avg = sum(s * w for s, w in zip(window, weights)) / sum(weights)
+
+        if weighted_avg >= 3.8:
             self._current_strategy = InterviewStrategy.DEEP_DIVE
-        elif avg_score >= 2.5:
+        elif weighted_avg >= 2.5:
             self._current_strategy = InterviewStrategy.GUIDED
         else:
             self._current_strategy = InterviewStrategy.PIVOT
 
         logger.info(
             f"Interview strategy adjusted to {self._current_strategy.value} "
-            f"(avg_score={avg_score:.1f})"
+            f"(current={current_avg:.1f}, weighted_avg={weighted_avg:.1f}, "
+            f"window={[f'{s:.1f}' for s in window]})"
         )
 
     @property
@@ -216,7 +229,7 @@ class InterviewerAgent(BaseAgent):
         question = await self.llm.chat(
             messages=messages,
             temperature=0.7,
-            max_tokens=500,
+            max_tokens=200,
         )
 
         await self._emit(Event(
